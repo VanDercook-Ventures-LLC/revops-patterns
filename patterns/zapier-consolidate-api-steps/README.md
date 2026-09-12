@@ -38,9 +38,11 @@ separate payload the next step has to reconcile.
 - Match redaction notices on the stable middle of the phrase — the exact wording
   varies by account and endpoint.
 - Throw on bad input rather than returning, so Zapier autoreplay can engage.
-- Domain rules don't transfer across verticals. A "Seller tag means seller"
-  convention is meaningless in a lending account; detect the context and only
-  emit the label when it applies.
+- Domain rules don't transfer across verticals. The "Seller tag means seller"
+  inference is a real-estate convention, so it lives in a `LEAD_TYPE_RULE`
+  constant (`null` switches it off) rather than in the logic. Structured
+  `Key: Value` tags are surfaced generically, so the code never needs to know
+  which qualification fields a given account uses.
 
 ## Usage
 

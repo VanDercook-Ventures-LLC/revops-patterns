@@ -35,7 +35,7 @@ const LIMIT     = 40;                                   // FUB max is 100
 // FUB redacts message bodies and recording URLs, but the exact wording varies by
 // account and endpoint. Observed in the wild:
 //   "Content is hidden for privacy reasons."   (per the docs)
-//   "* Body is hidden for privacy reasons *"   (observed on a live lending account)
+//   "* Body is hidden for privacy reasons *"   (observed on a live account)
 // Match the stable middle of the phrase rather than either exact string.
 const REDACTED_RE = /hidden\s+for\s+privacy\s+reasons/i;
 
@@ -47,6 +47,12 @@ const TIMEFRAMES = {
   4: '12+ Months',
   5: 'No Plans',
 };
+
+// Domain conventions differ by vertical, so they are configured, not hardcoded.
+// The default is Follow Up Boss's documented real-estate rule: a "Seller" tag
+// means seller, its absence means buyer. Set to null for any vertical where
+// that inference is meaningless -- an absent tag is not evidence of anything.
+const LEAD_TYPE_RULE = { tag: 'seller', present: 'Seller', absent: 'Buyer' };
 
 // Explicit field list keeps the person payload small and predictable.
 // FUB does not return all fields by default; `allFields` can be very large.
@@ -170,12 +176,11 @@ export default async function main({ inputData }) {
 
   const p = personRes.data || {};
 
-  // FUB has no lead-type field. Documented rule: a "Seller" tag means seller,
-  // its absence means buyer.
   const tags = Array.isArray(p.tags) ? p.tags : [];
 
-  // In some accounts, many tags are structured `Key: Value` pairs carrying the real
-  // qualification data (Loan Purpose, Credit, FHA, Veteran). Parse them out.
+  // Many accounts encode qualification data as structured `Key: Value` tags.
+  // Parse them into facts. Every fact is surfaced in the transcript header, so
+  // nothing here needs to know which keys a given vertical uses.
   const tagFacts = {};
   const plainTags = [];
   for (const raw of tags) {
@@ -184,15 +189,11 @@ export default async function main({ inputData }) {
     else plainTags.push(String(raw).trim());
   }
 
-  // FUB's documented Seller-tag rule is a REAL-ESTATE convention. In a lending
-  // account it is meaningless and misleading -- a cash-out refi borrower is not a
-  // "Buyer". Only emit lead type when this does not look like a lending record.
-  const isLending = Boolean(
-    tagFacts['loan purpose'] || tagFacts['credit'] || tagFacts['fha'] || tagFacts['veteran']
-  );
-  const leadType = isLending
-    ? null
-    : (plainTags.some((t) => t.toLowerCase() === 'seller') ? 'Seller' : 'Buyer');
+  const leadType = LEAD_TYPE_RULE
+    ? (plainTags.some((t) => t.toLowerCase() === LEAD_TYPE_RULE.tag)
+        ? LEAD_TYPE_RULE.present
+        : LEAD_TYPE_RULE.absent)
+    : null;
 
   const person = {
     id: p.id,
@@ -202,7 +203,6 @@ export default async function main({ inputData }) {
     price: p.price ?? null,
     tags,
     tagFacts,
-    isLending,
     leadType,
     timeframe: TIMEFRAMES[p.timeframeId] || null,
     assignedTo: p.assignedTo || null,
@@ -329,10 +329,8 @@ export default async function main({ inputData }) {
   const header = [
     `CONTACT: ${person.name} (id ${person.id})`,
     person.leadType ? `LEAD TYPE: ${person.leadType}` : null,
-    tagFacts['loan purpose'] ? `LOAN PURPOSE: ${tagFacts['loan purpose']}` : null,
-    tagFacts['credit'] ? `CREDIT (self-reported): ${tagFacts['credit']}` : null,
-    tagFacts['fha'] ? `FHA: ${tagFacts['fha']}` : null,
-    tagFacts['veteran'] ? `VETERAN: ${tagFacts['veteran']}` : null,
+    // Every structured tag fact, whatever keys this account happens to use.
+    ...Object.entries(tagFacts).map(([k, v]) => `${k.toUpperCase()}: ${v}`),
     person.stage ? `STAGE: ${person.stage}` : null,
     person.timeframe ? `TIMEFRAME: ${person.timeframe}` : null,
     person.price ? `PRICE: ${person.price}` : null,
