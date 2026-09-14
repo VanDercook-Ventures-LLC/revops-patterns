@@ -11,5 +11,6 @@ the root cause, and the fix, plus the working code.
 | [zapier-resumable-bulk-export](patterns/zapier-resumable-bulk-export/) | Archive a whole CRM to Sheets from a 30-second serverless step: cursor out, chunk by bytes |
 | [zapier-consolidate-api-steps](patterns/zapier-consolidate-api-steps/) | Four Zap steps → one code step → one clean transcript for the AI step |
 | [html-to-pdf-single-source](patterns/html-to-pdf-single-source/) | Derive the PDF from the page so they can never drift |
+| [zapier-audit-from-draft-definition](patterns/zapier-audit-from-draft-definition/) | Pull a 78-step Zap's full definition from the editor page and audit it mechanically — tasks per branch, Formatter drift, glued tokens |
 
 — Charles VanDercook · [vandercookventures.com](https://www.vandercookventures.com)
